@@ -6,10 +6,10 @@ plugins {
 
 korge {
     id = "com.devex.stratego"
-
     name = "Stratego"
-
-    icon = file("src/commonMain/resources/korge.png")
+    androidMinSdk = 18
+    androidCompileSdk = 33
+    androidTargetSdk = 33
 
 // To enable all targets at once
 
@@ -23,6 +23,7 @@ korge {
     targetJvm()
     targetDesktop()
     serializationJson()
+    targetAndroid()
 }
 
 

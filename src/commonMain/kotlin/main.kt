@@ -143,23 +143,36 @@ suspend fun main() = Korge(
                             index = 0
                             x+= 50
                         }
+                        piece.visible = true
                         piece.view.xy(x,50 + 50 * index)
                         piece.pieceView.size(squareSize /1.5f, squareSize/1.5f)
-                        piece.showPiece()
                         addChild(piece.view)
                         index++
                     }
                     player2.lostPieces.forEachIndexed { index, piece ->
+                        piece.visible = true
                         piece.view.xy(1100,50 + 50 * index)
                         piece.pieceView.size(squareSize /1.5f, squareSize/1.5f)
-                        piece.showPiece()
                         addChild(piece.view)
                     }
                     resetSelected()
                     currentPlayer = enemyPlayer.also { enemyPlayer = currentPlayer }
+                    switchView(board, currentPlayer, enemyPlayer)
                     infoText.firstChild.setText("")
                     playerTurnText.firstChild.setText("${currentPlayer.name}'s turn")
                 }
+            }
+        }
+    }
+}
+
+private fun switchView(board: Array<Array<Square>>, currentPlayer: Player, enemyPlayer: Player) {
+    for (y in 0 .. 9) {
+        for (x in 0..9) {
+            board[y][x].piece?.let{
+                if(it in currentPlayer.pieces) it.showPiece()
+                else if(it in enemyPlayer.pieces && it.visible) it.showPiece()
+                else it.hidePiece()
             }
         }
     }
@@ -191,8 +204,8 @@ private fun moveToNextSquare(
         currentSquare.removePiece()
         true
     } else {
-        currentSquare.piece?.showPiece()
-        nextSquare.piece?.showPiece()
+        currentSquare.piece?.visible = true
+        nextSquare.piece?.visible = true
         val hasWonConfrontation = confrontPiece(currentSquare.piece, currentPlayer, nextSquare.piece, enemyPlayer)
 
         if(hasWonConfrontation == null){
@@ -232,6 +245,8 @@ fun placePiecesOnBoard(squares: Array<Array<Square>>, player1Pieces: MutableList
         }
     }
 }
+
+
 
 fun confrontPiece(playerPiece: Piece?, player: Player, enemyPiece: Piece?, enemy: Player): Boolean? {
 

@@ -3,7 +3,7 @@ import korlibs.korge.input.*
 import korlibs.korge.view.*
 import korlibs.korge.view.align.*
 
-data class Piece(val type: Type, val movement: Int = 1, val color: RGBA){
+data class Piece(val type: Type, val movement: Int = 1, val color: RGBA, var visible: Boolean = false){
     val view = Container()
     val tag = Text(type.abr + "|" + type.rank)
     val pieceView = Container().solidRect(squareSize / 1.2, squareSize / 1.2, color){ zIndex = 0f }
@@ -16,6 +16,11 @@ data class Piece(val type: Type, val movement: Int = 1, val color: RGBA){
 
     fun showPiece(){
         tag.setText(type.abr + "|" + type.rank)
+        tag.centerOn(pieceView)
+    }
+
+    fun hidePiece() {
+        tag.setText("?")
         tag.centerOn(pieceView)
     }
 }

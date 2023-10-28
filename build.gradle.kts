@@ -26,6 +26,9 @@ korge {
     targetAndroid()
 }
 
+tasks.withType<Test>(){
+    useJUnitPlatform()
+}
 
 dependencies {
     add("commonMainApi", project(":deps"))

@@ -1,34 +1,37 @@
 import korlibs.image.color.*
-import korlibs.korge.input.*
 import korlibs.korge.view.*
 import korlibs.korge.view.align.*
 
 data class Piece(val type: Type, val movement: Int = 1, val color: RGBA, var visible: Boolean = false){
     val view = Container()
-    val tag = Text(type.abr + "|" + type.rank)
-    val pieceView = Container().solidRect(squareSize / 1.2, squareSize / 1.2, color){ zIndex = 0f }
+    val tag = Text("${type.rank}")
 
     init {
         tag.zIndex = 1f
-        view.addChildren(listOf( pieceView, tag))
-        tag.centerOn(pieceView)
+        tag.colorMul = Colors.BLACK
+        tag.fontSize = 30f
+        view.addChild(tag)
     }
 
+
     fun setSelectedColor(){
-        pieceView.colorMul = Colors.GREEN
+        view.lastChild?.visible(true)
+        view.lastChild?.prevSibling?.visible(false)
     }
     fun resetColor(){
-        pieceView.colorMul = color
+        view.lastChild?.visible(false)
+        view.lastChild?.prevSibling?.visible(true)
     }
 
     fun showPiece(){
-        tag.setText(type.abr + "|" + type.rank)
-        tag.centerOn(pieceView)
+        tag.setText("${type.rank}")
+        tag.centerOn(view)
     }
 
     fun hidePiece() {
         tag.setText("?")
-        tag.centerOn(pieceView)
+        tag.centerOn(view)
+
     }
 }
 

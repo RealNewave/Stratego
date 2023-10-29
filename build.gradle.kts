@@ -10,6 +10,8 @@ korge {
     androidMinSdk = 18
     androidCompileSdk = 33
     androidTargetSdk = 33
+    orientation = Orientation.LANDSCAPE
+    
 
 // To enable all targets at once
 

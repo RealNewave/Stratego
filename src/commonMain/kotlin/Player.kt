@@ -3,13 +3,13 @@ import korlibs.image.color.*
 open class Player(val name: String, val color: RGBA){
     val pieces: MutableList<Piece> = mutableListOf()
     val lostPieces: MutableList<Piece> = mutableListOf()
-
     init {
         createPieces()
         pieces.shuffle()
     }
 
     fun removePiece(piece: Piece){
+       piece.setSelectedColor()
        lostPieces.add(piece)
        pieces.remove(piece)
     }

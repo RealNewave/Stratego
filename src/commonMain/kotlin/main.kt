@@ -1,5 +1,7 @@
 import korlibs.datastructure.*
 import korlibs.image.color.*
+import korlibs.image.format.*
+import korlibs.io.file.std.*
 import korlibs.korge.*
 import korlibs.korge.input.*
 import korlibs.korge.ui.*
@@ -23,6 +25,7 @@ lateinit var player2: Player
 
 suspend fun main() = Korge(
     windowSize = Size(1440, 900),
+    virtualSize = Size(1440, 800),
     title = "Stratego",
     bgcolor = RGBA(253, 247, 240),
     /**
@@ -32,12 +35,26 @@ suspend fun main() = Korge(
     gameId = "com.devex.stratego",
     forceRenderEveryFrame = false, // Optimization to reduce battery usage!
 ) {
-    val restartButton = uiButton("Restart"){xy(10,10)}
-    this.addChildren(listOf(playerTurnText, infoText, restartButton))
+    val restartButton = uiButton("Restart")
+    restartButton.alignLeftToLeftOf(this.stage, 20)
+    restartButton.alignTopToTopOf(this.stage, 20)
+    restartButton.size(squareSize * 1.5, squareSize * 1.0)
+    restartButton.textSize = 20f
     restartButton.onClick {
-        this.removeChildrenIf { index, child -> index > 2 }
+        this.removeChildrenIf { index, child -> index > 3 }
         initGame()
     }
+
+    val quitButton = uiButton("Quit")
+    quitButton.alignLeftToLeftOf(this.stage, 20)
+    quitButton.alignTopToTopOf(this.stage, 140)
+    quitButton.size(squareSize * 1.5, squareSize * 1.0)
+    quitButton.textSize = 20f
+    quitButton.onPress {
+        views.gameWindow.close()
+    }
+
+    this.addChildren(listOf(playerTurnText, infoText, restartButton, quitButton))
 
 
     initGame()
@@ -151,21 +168,31 @@ suspend fun main() = Korge(
     }
 }
 
-private fun Stage.initGame() {
+private suspend fun Stage.initGame() {
     val xySize = squareSize / 1.1f
     board = Array(10) { i -> Array(10) { j ->
-        Square(null, (xySize * 10)/2 + (i.toFloat() * xySize), 50 + (j.toFloat() * xySize), i, j)
+        Square(null, (i.toFloat() * xySize), (j.toFloat() * xySize), i, j)
         }
     }
 
-    player1 = Player("Hans", Colors["#2b11ff"])
+    val boardContainer = Container()
+
+    player1 = Player("Player", Colors["#2b11ff"])
     player2 = GuessAI(Colors["#ffb42c"])
     currentPlayer = player1
     enemyPlayer = player2
-    this.addChildren(board.flatMap { it.map { square -> square.view } })
+    boardContainer.addChildren(board.flatMap { it.map { square -> square.view } })
     placePiecesOnBoard(board, player1.pieces, player2.pieces)
-    playerTurnText.addChild(Text("${currentPlayer.name}'s turn", color = Colors.BLACK, textSize = 20f))
-    infoText.addChild(Text("", color = Colors.ORANGERED, textSize = 20f))
+    this.addChild(boardContainer)
+    playerTurnText.addChild(Text("${currentPlayer.name}'s turn", color = Colors.BLACK, textSize = 30f))
+    infoText.addChild(Text("", color = Colors.ORANGERED, textSize = 30f))
+    playerTurnText.centerOn(this.stage)
+    playerTurnText.alignTopToTopOf(this.stage)
+    infoText.centerOn(this.stage)
+    infoText.alignTopToBottomOf(playerTurnText)
+    boardContainer.centerOn(this.stage)
+    boardContainer.alignTopToBottomOf(infoText)
+
     gameOver = false
 
 }
@@ -186,7 +213,7 @@ private fun Stage.showLostPieces(player1: Player, x: Int) {
         }
         piece.visible = true
         piece.view.xy(x1, 50 + 50 * index)
-        piece.pieceView.size(squareSize / 1.5f, squareSize / 1.5f)
+        piece.view.size(squareSize / 1.5f, squareSize / 1.5f)
         addChild(piece.view)
         index++
     }
@@ -258,21 +285,101 @@ private fun moveToNextSquare(
     }
 }
 
-fun placePiecesOnBoard(squares: Array<Array<Square>>, player1Pieces: MutableList<Piece>, player2Pieces: MutableList<Piece>) {
+suspend fun Stage.placePiecesOnBoard(squares: Array<Array<Square>>, player1Pieces: MutableList<Piece>, player2Pieces: MutableList<Piece>) {
+
+    val spriteMap = resourcesVfs["Small-8-Direction-Characters_by_AxulArt.png"].readBitmap()
+    val blueWalkAnimation = SpriteAnimation(
+        spriteMap = spriteMap,
+        spriteWidth = 128 / 8,
+        spriteHeight = 264 / 12,
+        marginTop = 264 / 12 * 5,
+        marginLeft = 128 / 8 * 4,
+        columns = 1,
+        rows = 3,
+        offsetBetweenColumns = 0,
+        offsetBetweenRows = 0,
+    )
+
+    val blueSelectedAnimation = SpriteAnimation(
+        spriteMap = spriteMap,
+        spriteWidth = 128 / 8,
+        spriteHeight = 264 / 12,
+        marginTop = 264 / 12 * 5,
+        marginLeft = 0,
+        columns = 8,
+        rows = 1,
+        offsetBetweenColumns = 0,
+        offsetBetweenRows = 0,
+    )
+
+    val redWalkAnimation = SpriteAnimation(
+        spriteMap = spriteMap,
+        spriteWidth = 128 / 8,
+        spriteHeight = 264 / 12,
+        marginTop = 264 / 12 * 9,
+        marginLeft = 0,
+        columns = 1,
+        rows = 3,
+        offsetBetweenColumns = 0,
+        offsetBetweenRows = 0,
+    )
+
+    val redSelectedAnimation = SpriteAnimation(
+        spriteMap = spriteMap,
+        spriteWidth = 128 / 8,
+        spriteHeight = 264 / 12,
+        marginTop = 264 / 12 * 9,
+        marginLeft = 0,
+        columns = 8,
+        rows = 1,
+        offsetBetweenColumns = 0,
+        offsetBetweenRows = 0,
+    )
+
     var index = 0
     for (i in 0 until 4) {
         for (j in 0..9) {
             val piece = player1Pieces[index]
+
+            val bluePlayerSpriteWalking = sprite(blueWalkAnimation)
+            bluePlayerSpriteWalking.size(squareSize/1.5f,squareSize/1.5f)
+            bluePlayerSpriteWalking.playAnimationLooped(spriteDisplayTime = 100.milliseconds, reversed = false)
+
+            val bluePlayerSpriteSelected = sprite(blueSelectedAnimation)
+            bluePlayerSpriteSelected.size(squareSize/1.5f,squareSize/1.5f)
+            bluePlayerSpriteSelected.playAnimationLooped(spriteDisplayTime = 100.milliseconds, reversed = false)
+
+            piece.view.addChildren(listOf(bluePlayerSpriteWalking,bluePlayerSpriteSelected))
+
+            bluePlayerSpriteWalking.centerOn(piece.view)
+            bluePlayerSpriteSelected.centerOn(piece.view)
+            bluePlayerSpriteSelected.visible(false)
+
+            piece.showPiece()
             squares[j][i].addPiece(piece)
             index++
         }
     }
+
     index = 0
     for (i in 6 until 10) {
         for (j in 0..9) {
             val piece = player2Pieces[index]
-            piece.tag.setText("?")
-            piece.tag.centerOn(piece.view)
+            val redPlayerSpriteWalking = sprite(redWalkAnimation)
+            redPlayerSpriteWalking.size(squareSize/1.5f,squareSize/1.5f)
+            redPlayerSpriteWalking.playAnimationLooped(spriteDisplayTime = 100.milliseconds, reversed = true)
+
+            val redPlayerSpriteSelected = sprite(redSelectedAnimation)
+            redPlayerSpriteSelected.size(squareSize/1.5f,squareSize/1.5f)
+            redPlayerSpriteSelected.playAnimationLooped(spriteDisplayTime = 100.milliseconds, reversed = false)
+
+            piece.view.addChildren(listOf(redPlayerSpriteWalking,redPlayerSpriteSelected))
+            redPlayerSpriteWalking.centerOn(piece.view)
+            redPlayerSpriteSelected.centerOn(piece.view)
+            redPlayerSpriteSelected.visible(false)
+
+
+            piece.hidePiece()
             squares[j][i].addPiece(piece)
             index++
         }

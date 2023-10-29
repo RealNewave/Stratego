@@ -1,4 +1,9 @@
 import korlibs.image.color.*
+import korlibs.image.format.*
+import korlibs.io.file.std.*
+import korlibs.korge.view.*
+import korlibs.korge.view.align.*
+import korlibs.time.*
 import kotlinx.coroutines.*
 import kotlin.math.*
 import kotlin.random.*
@@ -20,6 +25,27 @@ class GuessAI(color: RGBA) : Player("GuessAI", color) {
     private var timesCalled = 0
     init {
         placePiecesOnBoard(guessingBoard, humanPlayer.pieces, pieces)
+    }
+
+    private fun placePiecesOnBoard(squares: Array<Array<Square>>, player1Pieces: MutableList<Piece>, player2Pieces: MutableList<Piece>) {
+        var index = 0
+        for (i in 0 until 4) {
+            for (j in 0..9) {
+                val piece = player1Pieces[index]
+                squares[j][i].addPiece(piece)
+                index++
+            }
+        }
+        index = 0
+        for (i in 6 until 10) {
+            for (j in 0..9) {
+                val piece = player2Pieces[index]
+                piece.tag.setText("?")
+                piece.tag.centerOn(piece.view)
+                squares[j][i].addPiece(piece)
+                index++
+            }
+        }
     }
 
     fun calculateNextMove(): Triple<Piece, Int, Piece> {

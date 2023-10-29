@@ -25,13 +25,13 @@ data class Square(var piece: Piece?, val x: Float, val y: Float, val xCoord: Int
                 infoText.firstChild.setText("This piece can not move")
                 return false
             }
+            piece?.setSelectedColor()
             firstSelectedSquare = this
-            view.getChildAt(0).colorMul = Colors.GREEN
             return true
         }
         if (firstSelectedSquare == this) {
             infoText.firstChild.setText("Unselected unit")
-            view.getChildAt(0).colorMul = Colors.BROWN
+            piece?.resetColor()
             firstSelectedSquare = null
             return false
         }

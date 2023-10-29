@@ -14,6 +14,13 @@ data class Piece(val type: Type, val movement: Int = 1, val color: RGBA, var vis
         tag.centerOn(pieceView)
     }
 
+    fun setSelectedColor(){
+        pieceView.colorMul = Colors.GREEN
+    }
+    fun resetColor(){
+        pieceView.colorMul = color
+    }
+
     fun showPiece(){
         tag.setText(type.abr + "|" + type.rank)
         tag.centerOn(pieceView)

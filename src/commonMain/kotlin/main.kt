@@ -1,5 +1,8 @@
+import korlibs.datastructure.*
 import korlibs.image.color.*
 import korlibs.korge.*
+import korlibs.korge.input.*
+import korlibs.korge.ui.*
 import korlibs.korge.view.*
 import korlibs.korge.view.align.*
 import korlibs.math.geom.*
@@ -9,8 +12,14 @@ import kotlin.math.*
 const val squareSize = 80
 var firstSelectedSquare: Square? = null
 var secondSelectedSquare: Square? = null
-val infoText = Container().xy(10, 30)
+val infoText = Container().xy(610, 30)
+val playerTurnText = Container().xy(660, 10)
 var gameOver = false
+lateinit var currentPlayer: Player
+lateinit var enemyPlayer: Player
+lateinit var board: Array<Array<Square>>
+lateinit var player1: Player
+lateinit var player2: Player
 
 suspend fun main() = Korge(
     windowSize = Size(1440, 900),
@@ -23,29 +32,27 @@ suspend fun main() = Korge(
     gameId = "com.devex.stratego",
     forceRenderEveryFrame = false, // Optimization to reduce battery usage!
 ) {
-
-    val board = Array(10) { i -> Array(10) { j ->
-            Square(null, 300 + (i.toFloat() * squareSize / 1.1f), 50 + (j.toFloat() * squareSize / 1.1f), i, j)
-        }
+    val restartButton = uiButton("Restart"){xy(10,10)}
+    this.addChildren(listOf(playerTurnText, infoText, restartButton))
+    restartButton.onClick {
+        this.removeChildrenIf { index, child -> index > 2 }
+        initGame()
     }
 
-    val player1: Player = Player("Hans", Colors["#2b11ff"])
-    val player2: Player = SmartAI(Colors["#ffb42c"])
-    var currentPlayer = player1
-    var enemyPlayer = player2
-    this.addChildren(board.flatMap { it.map { square -> square.view } })
-    placePiecesOnBoard(board, player1.pieces, player2.pieces)
 
-    val playerTurnText = Container().xy(10, 10)
-    playerTurnText.addChild(Text("${currentPlayer.name}'s turn", color = Colors.BLACK, textSize = 20f))
-    infoText.addChild(Text("", color = Colors.ORANGERED, textSize = 20f))
-    this.addChildren(listOf(playerTurnText, infoText))
-
+    initGame()
 
     addFixedUpdater(60.timesPerSecond) {
         if (!gameOver) {
             if (currentPlayer == player2) {
-//                (player2 as SmartAI).calculateNextMove()
+                val guessAI = player2 as GuessAI
+                val bestMove = guessAI.calculateNextMove()
+                val nextMove = guessAI.makeNextMove(bestMove.first, bestMove.third)
+                val firstClick = board[nextMove[0]][nextMove[1]].handleClick()
+                if(firstClick) {
+                    val secondClick = board[nextMove[2]][nextMove[3]].handleClick()
+                    return@addFixedUpdater
+                }
             }
         }
     }
@@ -64,18 +71,14 @@ suspend fun main() = Korge(
                         resetSelected()
                         return@addFixedUpdater
                     }
-                    if (first.xCoord != second.xCoord &&
-                        first.yCoord != second.yCoord
-                    ) {
-                        infoText.firstChild.setText("Only move in a straight line")
-                        resetSelected()
-                        return@addFixedUpdater
-                    }
 
                     val deltaX = second.xCoord - first.xCoord
                     val deltaY = second.yCoord - first.yCoord
 
                     val direction = when {
+                        deltaX != 0 && deltaY != 0 -> {
+                            "ERROR"
+                        }
                         deltaX == 0 -> {
                             if (deltaY < 0) "UP" else "DOWN"
                         }
@@ -84,85 +87,108 @@ suspend fun main() = Korge(
                             if (deltaX > 0) "RIGHT" else "LEFT"
                         }
 
-                        else -> {
-                            "ERROR"
-                        }
+                        else -> {""}
                     }
 
+                    var currentSquare = board[first.xCoord][first.yCoord]
                     when (direction) {
                         "UP" -> {
-                            var currentSquare = board[first.xCoord][first.yCoord]
                             for (i in 1..minOf(first.piece?.movement!!, abs(deltaY))) {
                                 val nextSquare = board[first.xCoord][first.yCoord - i]
-                                if (!isSquareFree(nextSquare, currentPlayer)) return@addFixedUpdater
-                                if (!moveToNextSquare(nextSquare, currentSquare, currentPlayer, enemyPlayer)) break
-                                currentSquare = nextSquare
+                                val moveInDirection = moveInDirection(currentSquare, nextSquare, currentPlayer, enemyPlayer)
+                                if(moveInDirection == null) return@addFixedUpdater
+                                else if(!moveInDirection) break
+                                else currentSquare = nextSquare
                             }
                         }
 
                         "DOWN" -> {
-                            var currentSquare = board[first.xCoord][first.yCoord]
                             for (i in 1..minOf(first.piece?.movement!!, deltaY)) {
                                 val nextSquare = board[first.xCoord][first.yCoord + i]
-                                if (!isSquareFree(nextSquare, currentPlayer)) return@addFixedUpdater
-                                if (!moveToNextSquare(nextSquare, currentSquare, currentPlayer, enemyPlayer)) break
-                                currentSquare = nextSquare
+                                val moveInDirection = moveInDirection(currentSquare, nextSquare, currentPlayer, enemyPlayer)
+                                if(moveInDirection == null) return@addFixedUpdater
+                                else if(!moveInDirection) break
+                                else currentSquare = nextSquare
                             }
                         }
 
                         "LEFT" -> {
-                            var currentSquare = board[first.xCoord][first.yCoord]
                             for (i in 1..minOf(first.piece?.movement!!, abs(deltaX))) {
                                 val nextSquare = board[first.xCoord - i][first.yCoord]
-                                if (!isSquareFree(nextSquare, currentPlayer)) return@addFixedUpdater
-                                if (!moveToNextSquare(nextSquare, currentSquare, currentPlayer, enemyPlayer)) break
-                                currentSquare = nextSquare
+                                val moveInDirection = moveInDirection(currentSquare, nextSquare, currentPlayer, enemyPlayer)
+                                if(moveInDirection == null) return@addFixedUpdater
+                                else if(!moveInDirection) break
+                                else currentSquare = nextSquare
                             }
                         }
 
                         "RIGHT" -> {
-                            var currentSquare = board[first.xCoord][first.yCoord]
                             for (i in 1..minOf(first.piece?.movement!!, deltaX)) {
                                 val nextSquare = board[first.xCoord + i][first.yCoord]
-                                if (!isSquareFree(nextSquare, currentPlayer)) return@addFixedUpdater
-                                if (!moveToNextSquare(nextSquare, currentSquare, currentPlayer, enemyPlayer)) break
-                                currentSquare = nextSquare
+                                val moveInDirection = moveInDirection(currentSquare, nextSquare, currentPlayer, enemyPlayer)
+                                if(moveInDirection == null) return@addFixedUpdater
+                                else if(!moveInDirection) break
+                                else currentSquare = nextSquare
                             }
                         }
-
                         "ERROR" -> {
+                            infoText.firstChild.setText("Only move in a straight line")
                             resetSelected()
-                            infoText.firstChild.setText("Invalid movement")
                             return@addFixedUpdater
                         }
                     }
-                    var index = 0
-                    var x = 100
-                    player1.lostPieces.forEach { piece ->
-                        if(index == 10){
-                            index = 0
-                            x+= 50
-                        }
-                        piece.visible = true
-                        piece.view.xy(x,50 + 50 * index)
-                        piece.pieceView.size(squareSize /1.5f, squareSize/1.5f)
-                        addChild(piece.view)
-                        index++
-                    }
-                    player2.lostPieces.forEachIndexed { index, piece ->
-                        piece.visible = true
-                        piece.view.xy(1100,50 + 50 * index)
-                        piece.pieceView.size(squareSize /1.5f, squareSize/1.5f)
-                        addChild(piece.view)
-                    }
+
+                    showLostPieces(player1, 100)
+                    showLostPieces(player2, 1100)
                     resetSelected()
                     currentPlayer = enemyPlayer.also { enemyPlayer = currentPlayer }
-                    switchView(board, currentPlayer, enemyPlayer)
+//                    switchView(board, currentPlayer, enemyPlayer)
                     infoText.firstChild.setText("")
                     playerTurnText.firstChild.setText("${currentPlayer.name}'s turn")
                 }
             }
         }
+    }
+}
+
+private fun Stage.initGame() {
+    val xySize = squareSize / 1.1f
+    board = Array(10) { i -> Array(10) { j ->
+        Square(null, (xySize * 10)/2 + (i.toFloat() * xySize), 50 + (j.toFloat() * xySize), i, j)
+        }
+    }
+
+    player1 = Player("Hans", Colors["#2b11ff"])
+    player2 = GuessAI(Colors["#ffb42c"])
+    currentPlayer = player1
+    enemyPlayer = player2
+    this.addChildren(board.flatMap { it.map { square -> square.view } })
+    placePiecesOnBoard(board, player1.pieces, player2.pieces)
+    playerTurnText.addChild(Text("${currentPlayer.name}'s turn", color = Colors.BLACK, textSize = 20f))
+    infoText.addChild(Text("", color = Colors.ORANGERED, textSize = 20f))
+    gameOver = false
+
+}
+
+fun moveInDirection(currentSquare: Square, nextSquare: Square, currentPlayer: Player, enemyPlayer: Player): Boolean? {
+    if (!isSquareFree(nextSquare, currentPlayer)) return null
+    if (!moveToNextSquare(nextSquare, currentSquare, currentPlayer, enemyPlayer)) return false
+    return true
+}
+
+private fun Stage.showLostPieces(player1: Player, x: Int) {
+    var x1 = x
+    var index = 0
+    player1.lostPieces.forEach { piece ->
+        if (index == 10) {
+            index = 0
+            x1 += 50
+        }
+        piece.visible = true
+        piece.view.xy(x1, 50 + 50 * index)
+        piece.pieceView.size(squareSize / 1.5f, squareSize / 1.5f)
+        addChild(piece.view)
+        index++
     }
 }
 
@@ -188,7 +214,8 @@ private fun isSquareFree(nextSquare: Square, currentPlayer: Player): Boolean {
 }
 
 private fun resetSelected() {
-    firstSelectedSquare?.view?.getChildAt(0)?.colorMul = Colors.BROWN
+    firstSelectedSquare?.piece?.resetColor()
+    secondSelectedSquare?.piece?.resetColor()
     firstSelectedSquare = null
     secondSelectedSquare = null
 }
@@ -199,15 +226,21 @@ private fun moveToNextSquare(
     currentPlayer: Player,
     enemyPlayer: Player
 ): Boolean {
+    val guessAI: GuessAI = if(enemyPlayer is GuessAI) enemyPlayer.fastCastTo() else currentPlayer.fastCastTo()
+    nextSquare.piece?.resetColor()
+    currentSquare.piece?.resetColor()
     return if (nextSquare.piece == null) {
         currentSquare.piece?.let { nextSquare.addPiece(it) }
         currentSquare.removePiece()
+        guessAI.updateGuessMove(currentSquare.xCoord, currentSquare.yCoord, nextSquare.xCoord, nextSquare.yCoord)
         true
     } else {
         currentSquare.piece?.visible = true
         nextSquare.piece?.visible = true
         val hasWonConfrontation = confrontPiece(currentSquare.piece, currentPlayer, nextSquare.piece, enemyPlayer)
-
+        guessAI.updateGuessConfront(hasWonConfrontation, currentSquare.xCoord, currentSquare.yCoord, nextSquare.xCoord, nextSquare.yCoord)
+        currentSquare.piece?.showPiece()
+        nextSquare.piece?.showPiece()
         if(hasWonConfrontation == null){
             currentSquare.removePiece()
             nextSquare.removePiece()
@@ -246,8 +279,6 @@ fun placePiecesOnBoard(squares: Array<Array<Square>>, player1Pieces: MutableList
     }
 }
 
-
-
 fun confrontPiece(playerPiece: Piece?, player: Player, enemyPiece: Piece?, enemy: Player): Boolean? {
 
     if (enemyPiece == null || playerPiece == null) throw RuntimeException("Can not confront non-existing pieces")
@@ -259,6 +290,7 @@ fun confrontPiece(playerPiece: Piece?, player: Player, enemyPiece: Piece?, enemy
     when {
         enemyPiece.type === Type.FLAG -> {
             infoText.firstChild.setText("This is the flag! " + player.name + " wins!")
+            playerTurnText.firstChild.setText("This is the flag! " + player.name + " wins!")
             gameOver = true
             return true
         }
